@@ -1,5 +1,6 @@
 from azure.storage.blob import BlobServiceClient
 import boto3
+import os
 
 def list_azure_blob_files(container_name, prefix):
     """List files in an Azure blob container.
@@ -47,7 +48,7 @@ def list_s3_files(bucket_name, prefix):
     """
     s3 = boto3.resource("s3")
     bucket = s3.Bucket(bucket_name)
-    return [obj.key for obj in bucket.objects.filter(Prefix=prefix)]
+    return [obj.key for obj in bucket.objects.filter(Prefix=prefix) if obj.key[-3:] == 'csv']
 
 def upload_to_s3(bucket_name, local_path, s3_path):
     """Upload a file to an S3 bucket.
