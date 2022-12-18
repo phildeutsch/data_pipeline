@@ -2,7 +2,7 @@ from azure.storage.blob import BlobServiceClient
 import boto3
 import os
 
-def list_azure_blob_files(container_name, prefix):
+def list_azure_blob_files(container_name, pattern):
     """List files in an Azure blob container.
 
     Args:
@@ -16,8 +16,8 @@ def list_azure_blob_files(container_name, prefix):
         os.environ["AZURE_STORAGE_CONNECTION_STRING"]
     )
     container_client = blob_service_client.get_container_client(container_name)
-    blob_list = container_client.list_blobs(name_starts_with=prefix)
-    return [blob.name for blob in blob_list]
+    blob_list = container_client.list_blobs(name_starts_with='202')
+    return [blob.name for blob in blob_list if blob.name[-12:] == "activity.csv"]
 
 def get_azure_blob_file(container_name, blob_name, local_path):
     """Download a file from an Azure blob container.
