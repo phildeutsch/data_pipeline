@@ -1,5 +1,6 @@
 from azure.storage.blob import BlobServiceClient
 import boto3
+from prefect import flow, task, get_run_logger
 import os
 
 def list_azure_blob_files(container_name, pattern):
@@ -75,9 +76,11 @@ def find_missing_files(azure_files, s3_files):
     """
     return list(set(azure_files) - set(s3_files))
 
-
+@task
 def upload_missing_files(file_type):
     # file_type = "activity" or "customer"
+
+    logger = get_run_logger()
 
     # List files in the Azure blob container
     azure_files = list_azure_blob_files("mk-inbound", "_" + file_type + ".csv")
@@ -95,11 +98,11 @@ def upload_missing_files(file_type):
     missing_files = [f for f in missing_files if f[start:end] > '2022-11']
 
     if missing_files == []:
-        print(f"No missing {file_type} files")
+        logger.info(f"No missing {file_type} files")
     else: 
         # Upload missing files to S3
         for file in missing_files:
-            print(f'Uploading {file}')
+            logger.info(f'Uploading {file}')
 
             file = file[start:]
             # Download a file from the Azure blob container
@@ -109,6 +112,14 @@ def upload_missing_files(file_type):
             # delete the file after uploading
             os.remove(file)
 
-if __name__=='__main__':
+@flow(name="Data Pipeline")
+def pipeline():
+    logger = get_run_logger()
+    logger.info("Copying activity data to S3")
     upload_missing_files("activity")
+
+    logger.info("Copying customer data to S3")
     upload_missing_files("customer")
+
+if __name__=='__main__':
+    pipeline()
