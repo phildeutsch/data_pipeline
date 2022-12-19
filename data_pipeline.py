@@ -76,13 +76,15 @@ def find_missing_files(azure_files, s3_files):
     return list(set(azure_files) - set(s3_files))
 
 
-if __name__=='__main__':
+def upload_missing_files(file_type):
+    # file_type = "activity" or "customer"
+
     # List files in the Azure blob container
-    azure_files = list_azure_blob_files("mk-inbound", "_activity.csv")
-    azure_files = ["activity/" + f for f in azure_files]
+    azure_files = list_azure_blob_files("mk-inbound", "_" + file_type + ".csv")
+    azure_files = [file_type + "/" + f for f in azure_files]
 
     # List files in the S3 bucket
-    s3_files = list_s3_files("ibex-input", "activity")
+    s3_files = list_s3_files("ibex-input", file_type)
 
     # Find missing files between Azure and S3
     missing_files = find_missing_files(azure_files, s3_files)
@@ -93,14 +95,20 @@ if __name__=='__main__':
     missing_files = [f for f in missing_files if f[start:end] > '2022-11']
 
     if missing_files == []:
-        print("No missing files")
+        print(f"No missing {file_type} files")
     else: 
         # Upload missing files to S3
         for file in missing_files:
+            print(f'Uploading {file}')
+
             file = file[start:]
             # Download a file from the Azure blob container
             get_azure_blob_file("mk-inbound", file, file)
-            upload_to_s3("ibex-input", file, "activity/" + file)
+            upload_to_s3("ibex-input", file, file_type + "/" + file)
 
             # delete the file after uploading
             os.remove(file)
+
+if __name__=='__main__':
+    upload_missing_files("activity")
+    upload_missing_files("customer")
