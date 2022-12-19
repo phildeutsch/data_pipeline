@@ -15,9 +15,10 @@ def list_azure_blob_files(container_name, pattern):
     blob_service_client = BlobServiceClient.from_connection_string(
         os.environ["AZURE_STORAGE_CONNECTION_STRING"]
     )
+
     container_client = blob_service_client.get_container_client(container_name)
     blob_list = container_client.list_blobs(name_starts_with='202')
-    return [blob.name for blob in blob_list if blob.name[-12:] == "activity.csv"]
+    return [blob.name for blob in blob_list if blob.name[-len(pattern):] == pattern]
 
 def get_azure_blob_file(container_name, blob_name, local_path):
     """Download a file from an Azure blob container.
@@ -77,21 +78,29 @@ def find_missing_files(azure_files, s3_files):
 
 if __name__=='__main__':
     # List files in the Azure blob container
-    files = list_azure_blob_files("mycontainer", "myprefix")
-    print(files)
-
-    # Download a file from the Azure blob container
-    get_azure_blob_file("mycontainer", "myprefix/myfile.txt", "myfile.txt")
+    azure_files = list_azure_blob_files("mk-inbound", "_activity.csv")
+    azure_files = ["activity/" + f for f in azure_files]
 
     # List files in the S3 bucket
-    files = list_s3_files("mybucket", "myprefix")
-    print(files)
+    s3_files = list_s3_files("ibex-input", "activity")
 
     # Find missing files between Azure and S3
-    missing_files = find_missing_files(files, files)
+    missing_files = find_missing_files(azure_files, s3_files)
 
-    # Upload missing files to S3
-    for file in missing_files:
-        local_path = file
-        s3_path = file
-        upload_to_s3("mybucket", local_path, s3_path)
+    # exclude files before 2022-12
+    start = missing_files[0].find('/') + 1
+    end = start + 7
+    missing_files = [f for f in missing_files if f[start:end] > '2022-11']
+
+    if missing_files == []:
+        print("No missing files")
+    else: 
+        # Upload missing files to S3
+        for file in missing_files:
+            file = file[start:]
+            # Download a file from the Azure blob container
+            get_azure_blob_file("mk-inbound", file, file)
+            upload_to_s3("ibex-input", file, "activity/" + file)
+
+            # delete the file after uploading
+            os.remove(file)
